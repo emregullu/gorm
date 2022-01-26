@@ -521,7 +521,7 @@ func (db *DB) Connection(fc func(tx *DB) error) (err error) {
 		return db.Error
 	}
 
-	tx := db.getInstance()
+	tx := db.getInstance().Session(&Session{Context: db.Statement.Context})
 	sqlDB, err := tx.DB()
 	if err != nil {
 		return
@@ -533,7 +533,10 @@ func (db *DB) Connection(fc func(tx *DB) error) (err error) {
 	}
 
 	defer conn.Close()
+
 	tx.Statement.ConnPool = conn
+	tx.ConnPool = tx.Statement.ConnPool
+
 	return fc(tx)
 }
 

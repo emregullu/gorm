@@ -5,7 +5,9 @@ import (
 	"testing"
 
 	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/utils/tests"
 )
 
 func TestWithSingleConnection(t *testing.T) {
@@ -41,7 +43,33 @@ func getSetSQL(driverName string) (string, string) {
 	switch driverName {
 	case mysql.Dialector{}.Name():
 		return "SET @testName := ?", "SELECT @testName"
+	case postgres.Dialector{}.Name():
+		return "SET test.test_name = ?", "SELECT current_setting('test.test_name')"
 	default:
 		return "", ""
+	}
+}
+
+func TestConnectionNewSessionMode(t *testing.T) {
+	err := DB.Connection(func(tx *gorm.DB) error {
+		user := *GetUser("connection_new_session_mode", Config{Account: true})
+
+		if err := tx.Create(&user).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Preload("Account").Where("id = ?", user.ID).First(&user).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Where("number = ?", user.Account.Number).First(&tests.Account{}).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		t.Errorf(fmt.Sprintf("ConnectionNewSessionMode should work, but got err %v", err))
 	}
 }
